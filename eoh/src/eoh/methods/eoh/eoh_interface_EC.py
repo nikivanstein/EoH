@@ -6,6 +6,8 @@ from joblib import Parallel, delayed
 from .evaluator_accelerate import add_numba_decorator
 import re
 import concurrent.futures
+import uuid
+import jsonlines
 
 class InterfaceEC():
     def __init__(self, pop_size, m, api_endpoint, api_key, llm_model,llm_use_local,llm_local_url, debug_mode, interface_prob, select,n_p,timeout,use_numba,**kwargs):
@@ -81,6 +83,8 @@ class InterfaceEC():
         for i in range(len(seeds)):
             try:
                 seed_alg = {
+                    'id': str(uuid.uuid4()),
+                    'parents': [],
                     'algorithm': seeds[i]['algorithm'],
                     'code': seeds[i]['code'],
                     'objective': None,
@@ -91,17 +95,24 @@ class InterfaceEC():
                 seed_alg['objective'] = np.round(obj, 5)
                 population.append(seed_alg)
 
+                with jsonlines.open(f"./EoHrun.jsonl", "a") as file:
+                    file.write(seed_alg)
+
             except Exception as e:
                 print("Error in seed algorithm")
                 exit()
 
         print("Initiliazation finished! Get "+str(len(seeds))+" seed algorithms")
 
+        
+
         return population
     
 
     def _get_alg(self,pop,operator):
         offspring = {
+            'id': str(uuid.uuid4()),
+            'parents': [],
             'algorithm': None,
             'code': None,
             'objective': None,
@@ -112,21 +123,27 @@ class InterfaceEC():
             [offspring['code'],offspring['algorithm']] =  self.evol.i1()            
         elif operator == "e1":
             parents = self.select.parent_selection(pop,self.m)
+            offspring['parents'] = [p['id'] for p in parents]
             [offspring['code'],offspring['algorithm']] = self.evol.e1(parents)
         elif operator == "e2":
             parents = self.select.parent_selection(pop,self.m)
+            offspring['parents'] = [p['id'] for p in parents]
             [offspring['code'],offspring['algorithm']] = self.evol.e2(parents) 
         elif operator == "m1":
             parents = self.select.parent_selection(pop,1)
+            offspring['parents'] = [p['id'] for p in parents]
             [offspring['code'],offspring['algorithm']] = self.evol.m1(parents[0])   
         elif operator == "m2":
             parents = self.select.parent_selection(pop,1)
+            offspring['parents'] = [p['id'] for p in parents]
             [offspring['code'],offspring['algorithm']] = self.evol.m2(parents[0]) 
         elif operator == "m3":
             parents = self.select.parent_selection(pop,1)
+            offspring['parents'] = [p['id'] for p in parents]
             [offspring['code'],offspring['algorithm']] = self.evol.m3(parents[0]) 
         else:
             print(f"Evolution operator [{operator}] has not been implemented ! \n") 
+
 
         return parents, offspring
 
@@ -187,12 +204,17 @@ class InterfaceEC():
         except Exception as e:
 
             offspring = {
+                'id' : None,
+                "parents" : [],
                 'algorithm': None,
                 'code': None,
                 'objective': None,
                 'other_inf': None
             }
             p = None
+        
+        with jsonlines.open(f"./EoHrun.jsonl", "a") as file:
+            file.write(offspring)
 
         # Round the objective values
         return p, offspring
